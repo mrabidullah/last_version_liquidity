@@ -1,0 +1,37 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Company profile | Deltablock</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@200&family=IBM+Plex+Mono:wght@500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"><link rel="stylesheet" href="css/style.css"><script src="js/theme.js"></script></head>
+<body><div id="root"></div><script src="js/data.js"></script><script src="js/app.js"></script>
+<script>
+(function(){
+var D=App.D,esc=App.esc,draft=null,errs={};
+var STATUS={approved:['ok','Approved'],rejected:['bad','Rejected']};
+function lastDecision(id){return App.profileReviews().filter(function(r){return r.company===id&&(r.status==='approved'||r.status==='rejected');})[0];}
+App.mount({page:'company',title:'Company profile',roles:['client','multi','admin'],scoped:true,render:function(ctx){
+ var co=ctx.co,pend=App.pendingReview(co.id),edit=App.can.editProfile(co.id),F=App.PROFILE_FIELDS;
+ function val(k){if(draft&&draft.co===co.id&&draft.vals[k]!==undefined)return draft.vals[k];if(pend&&pend.changes[k])return pend.changes[k].to;return co[k]==null?'':co[k];}
+ function inp(f,span){var k=f[0];return '<div'+(span?' class="md:col-span-2"':'')+'><label class="lbl" for="f-'+k+'">'+f[1]+'</label><input id="f-'+k+'" name="'+k+'" type="'+f[2]+'" class="inp" value="'+esc(val(k))+'" autocomplete="off"'+(edit?'':' readonly')+(errs[k]?' aria-invalid="true"':'')+' aria-describedby="e-'+k+'"><p class="field-err" id="e-'+k+'" role="alert"'+(errs[k]?'':' hidden')+'>'+esc(errs[k]||'')+'</p></div>';}
+ var about=F.slice(0,6).map(function(f){return inp(f);}).join(''),contact=F.slice(6,8).map(function(f){return inp(f);}).join('')+inp(F[8],true);
+ var ld=lastDecision(co.id),badge=pend?App.badge('warn','Pending review'):App.badge('dr','Changes are reviewed');
+ var note;
+ if(ctx.admin)note='You are viewing the approved profile. Client changes arrive as requests in <a class="underline" href="profile-reviews.html">Profile reviews</a>'+(pend?' &mdash; one is waiting for this company.':'.');
+ else if(pend)note='A change was sent for review on '+esc(pend.submittedLabel)+' by '+esc(pend.by.name||'a colleague')+'. The approved profile below stays unchanged until an administrator approves it.';
+ else if(!edit)note='You can view this profile. Only a manager of '+esc(co.name)+' can submit changes.';
+ else note='Changes are not applied instantly. An administrator reviews them first, and the current approved profile stays live meanwhile.';
+ var outcome=(!pend&&ld)?'<div class="card mb-6 flex flex-wrap items-center gap-3 p-4 text-sm">'+App.badge(STATUS[ld.status][0],'Last request '+STATUS[ld.status][1].toLowerCase())+'<span class="text-mut">Reviewed '+esc(ld.reviewedLabel||'')+(ld.reviewedBy?' by '+esc(ld.reviewedBy.name):'')+(ld.note?' &middot; '+esc(ld.note):'')+'</span></div>':'';
+ var pendBox='';
+ if(pend){pendBox='<section class="card mb-6 overflow-x-auto"><div class="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-4"><h2 class="font-semibold">Submitted changes</h2>'+(edit?'<button type="button" class="btn btn-s" id="withdraw">Withdraw request</button>':'')+'</div><table class="tbl min-w-[560px]"><tr><th>Field</th><th>Approved (live)</th><th>Proposed</th></tr>'+Object.keys(pend.changes).map(function(k){var f=F.filter(function(x){return x[0]===k;})[0];return '<tr><td>'+esc(f?f[1]:k)+'</td><td class="text-mut">'+esc(co[k]==null||co[k]===''?'—':co[k])+'</td><td class="font-medium">'+esc(pend.changes[k].to===''?'—':pend.changes[k].to)+'</td></tr>';}).join('')+'</table></section>';}
+ var form='<form id="pf" class="space-y-6" novalidate><section class="card p-6"><h2 class="font-semibold">About company</h2><p class="mb-5 text-sm text-cap">Share structure and listing details shown to your investors.</p><div class="grid gap-x-5 gap-y-4 md:grid-cols-2">'+about+'</div></section><section class="card p-6"><h2 class="font-semibold">Contact info</h2><p class="mb-5 text-sm text-cap">How investors and Deltablock can reach your company.</p><div class="grid gap-x-5 gap-y-4 md:grid-cols-2">'+contact+'</div></section>'+
+  (edit?'<div class="card sticky bottom-4 z-10 flex flex-wrap items-center justify-between gap-3 px-5 py-3"><span class="text-sm text-cap">'+(pend?'Submitting again replaces your pending request.':'Edits are sent for review before they go live.')+'</span><div class="flex gap-3"><button type="button" id="discard" class="btn">Reset form</button><button class="btn btn-p">Submit for review</button></div></div>':'')+'</form>';
+ return '<div class="mb-8 flex flex-wrap items-end justify-between gap-3"><div><h1 class="page-title">Company profile</h1><p class="mt-2 text-sm text-mut">Profile and contact details for '+esc(co.name)+'.</p></div>'+badge+'</div><div class="card mb-6 flex gap-3 bg-[var(--infb)] p-4 text-sm"><p class="text-mut">'+note+'</p></div>'+outcome+pendBox+form;
+},after:function(ctx,main){
+ var co=ctx.co,form=main.querySelector('#pf');
+ if(!App.can.editProfile(co.id))return;
+ form.addEventListener('submit',function(e){e.preventDefault();
+  var vals={};App.PROFILE_FIELDS.forEach(function(f){vals[f[0]]=form.querySelector('#f-'+f[0]).value;});
+  var res=App.submitProfile(co.id,vals);
+  if(!res.ok){errs=res.errors||{};draft={co:co.id,vals:vals};ctx.refresh();App.toast(res.error,'err');var bad=main.querySelector('[aria-invalid]');if(bad)bad.focus();return;}
+  errs={};draft=null;ctx.refresh();App.toast('Changes sent for review');window.scrollTo(0,0);});
+ main.querySelector('#discard').addEventListener('click',function(){errs={};draft=null;ctx.refresh();App.toast('Form reset');});
+ var w=main.querySelector('#withdraw');if(w)w.addEventListener('click',function(){var res=App.withdrawProfile(co.id);if(!res.ok){App.toast(res.error,'err');return;}draft=null;errs={};ctx.refresh();App.toast('Request withdrawn');});
+}});
+})();
+</script></body></html>
