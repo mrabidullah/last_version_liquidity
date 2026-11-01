@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Deltablock static prototype
 
 Clickable HTML prototype of the Deltablock client portal. Sample data only (`js/data.js`); changes you make while clicking
@@ -21,3 +22,6 @@ Static prototype (HTML, Tailwind, vanilla JS, localStorage). Nothing here is a p
 - **Add admin** creates a pending admin with a setup link on `users.html`.
 - Saved data from earlier versions is migrated in place (`migrate()` in `app.js`); nothing is reset automatically. To start clean, run `Object.keys(localStorage).filter(k=>k.startsWith('dbt-')&&k!=='dbt-theme-v2').forEach(k=>localStorage.removeItem(k))` in the browser console.
 - Build CSS: `npm install && npm run build`. Run locally: `python3 -m http.server 8000`, then open `http://localhost:8000/login.html`.
+=======
+# last_version_liquidity
+>>>>>>> 7f8e268bf9943a0006d2240aa01f1dd18b513d05
